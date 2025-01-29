@@ -1,0 +1,10 @@
+{
+    "Name": "Analog Movement",
+    "Author": "Amberichu",
+    "Version": "1.0.0",
+    "Description": "Allow analog movement with the left thumbstick",
+    "UniqueID": "Amberichu.AnalogMovement",
+    "EntryDll": "AnalogMovement.dll",
+    "MinimumApiVersion": "4.0.0",
+    "UpdateKeys": []
+  }
