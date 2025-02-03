@@ -1,0 +1,16 @@
+{
+    "Name": "Overflowing Bin",
+    "Author": "Amberichu",
+    "Version": "1.0.0",
+    "Description": "Show items placed into the shipping bin",
+    "UniqueID": "Amberichu.OverflowingBin",
+    "EntryDll": "OverflowingBin.dll",
+    "MinimumApiVersion": "4.0.0",
+    "UpdateKeys": [],
+    "Dependencies": [
+      {
+        "UniqueID": "Pathoschild.ContentPatcher",
+        "IsRequired": false
+      }
+    ]
+  }
