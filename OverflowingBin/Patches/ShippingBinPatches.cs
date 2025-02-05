@@ -60,76 +60,53 @@ internal class ShippingBinPatches
     private static void DrawItems(ShippingBin instance, ShippingBinState state, IInventory inventory, SpriteBatch b)
     {
         // Constants TODO move
-        // int StackSize = 50;
-        // float ItemScale = 0.5f;
-
-        // int Columns = 5;
-
-        // float Width = instance.tilesWide.Value * 64f;
-        // float Padding = 16f / 0.8f * ItemScale;
-
-        // float ColumnSpacing = (Width - Padding * 2) / Columns;
-        // float RowSpacing = 24f * ItemScale;
-
-        // float OddColumnOffset = 4f;
-
-        // float LidThreshold = 60f;
-        int StackSize = 50;
+        int StackSize = 15;
         float ItemScale = 0.8f;
 
         int Columns = 3;
 
         float Width = instance.tilesWide.Value * 64f;
-        float Padding = 16f / 0.8f * ItemScale;
+        float Padding = 20f / 0.8f * ItemScale;
 
-        float ColumnSpacing = (Width - Padding * 2) / Columns;
         float RowSpacing = 24f * ItemScale;
 
         float OddColumnOffset = 4f;
 
-        float LidThreshold = 60f;
+        float LidThreshold = 54f;
+
+        float WobbleAmplitude = 16f;
+        double WobbleFrequency = Math.Tau / 20.0;
+        float WobbleFadeRows = 20f;
 
         // Global position of bottom left corner of the shipping bin
         var basePosition = new Vector2(instance.tileX.Value, instance.tileY.Value) * 64f;
-        var random = new Random(Game1.Date.TotalDays + inventory.Count);
+        var random = new Random(Game1.Date.TotalDays);
         var itemTint = Color.White * instance.alpha;
-        int spriteIdx = 0;
+        int wobblePhase = random.Next(-20, 20);
+        // State
+        Vector2 rowOffset = Vector2.Zero;
+        float columnSpacing = (Width - Padding * 2) / Columns;
+        int columns = Columns;
+
+        int row = 0;
+        int column = 0;
         foreach (var item in inventory)
         {
             if (item == null)
             {
                 continue;
             }
-            int lastRow = -1;
-            Vector2 rowOffset = Vector2.Zero;
-            float columnSpacing = 0;
             for (int j = 0; j < item.Stack; j += StackSize)
             {
-                var column = spriteIdx % Columns;
-                var row = spriteIdx / Columns;
-
-                if (lastRow != row)
-                {
-                    lastRow = row;
-
-                    rowOffset = new Vector2(random.Next(-8, 8), random.Next(-4, 0));
-                    columnSpacing = ColumnSpacing;
-                    if (row * RowSpacing < 64f)
-                    {
-                        rowOffset.X *= 0.5f;
-                        columnSpacing += random.Next(-2, 2);
-                    } else {
-                        columnSpacing *= 1 - (random.Next(-8, 8) / 64f);
-                    }
-                }
-
                 var position = basePosition;
                 position.X += Width * 0.5f; // Move item to the horizontal center of the shipping box
                 position.X -= 32f;          // Center item horizontally
                 position.Y -= 20f;          // Move items up so the first row is partially visible
 
-                position.X += columnSpacing * (column - (Columns - 1) * 0.5f); // Column horizontal offset
+                position.X += columnSpacing * (column - (columns - 1) * 0.5f); // Column horizontal offset
                 position.Y += -row * RowSpacing;                               // Row vertical offset
+
+                position.X += random.Next(-4, 4); // Per item randomness
 
                 position.Y += column % 2 * OddColumnOffset; // Move odd columns down vertically
 
@@ -140,15 +117,40 @@ internal class ShippingBinPatches
                     state.CanCloseLid = false;
                     if (!IsShippingBinLidOpen(instance, true))
                     {
-                        // Don't render items that can clip with the lid while it is openning
-                        break;
+                        // Don't render items that can clip with the lid while it is opening
+                        return;
                     }
                 }
 
                 var location = Game1.GlobalToLocal(Game1.viewport, position);
-                var layerDepth = (basePosition.Y + 64) / 10000f + 0.00012f + (column + row * 3) * 0.00011f;
+                var layerDepth = (basePosition.Y + 64) / 10000f + 0.00012f + (column + row * 2) * 0.00011f;
                 item.drawInMenu(b, location, ItemScale, 1.0f, layerDepth, StackDrawType.Hide, itemTint, true);
-                spriteIdx++;
+
+                column++;
+                if (column == columns)
+                {
+                    row++;
+                    column = 0;
+
+                    rowOffset = Vector2.Zero;
+                    // Gradually make the stack wobble from side to side
+                    float wobble = WobbleAmplitude * (float)Math.Sin((row + wobblePhase) * WobbleFrequency);
+                    float wobbleFade = Math.Min(row / WobbleFadeRows, 1.0f);
+                    rowOffset.X += wobble * wobbleFade;
+
+                    if (row * RowSpacing < 64f)
+                    {
+                        columns = Columns;
+                        columnSpacing = (Width - Padding * 2) / columns;
+                        columnSpacing += random.Next(-2, 2);
+                    }
+                    else
+                    {
+                        columns = Columns + random.Next(0, 2);
+                        columnSpacing = (Width - Padding * 2) / columns;
+                        columnSpacing *= 1 - (random.Next(-24, 8) / 64f);
+                    }
+                }
             }
         }
     }
@@ -173,7 +175,8 @@ internal class ShippingBinPatches
         );
     }
 
-    private static void Draw_Postfix(ShippingBin __instance, Farm? ___farm, TemporaryAnimatedSprite? ___shippingBinLid, SpriteBatch b)
+    private static void Draw_Postfix(ShippingBin __instance, Farm? ___farm,
+        TemporaryAnimatedSprite? ___shippingBinLid, SpriteBatch b)
     {
         if (___farm == null)
         {
@@ -203,7 +206,8 @@ internal class ShippingBinPatches
         DrawFront(__instance, state, b);
     }
 
-    private static bool CloseShippingBinLid_Prefix(ShippingBin __instance, TemporaryAnimatedSprite? ___shippingBinLid)
+    private static bool CloseShippingBinLid_Prefix(ShippingBin __instance,
+        TemporaryAnimatedSprite? ___shippingBinLid)
     {
         if (___shippingBinLid == null)
         {
@@ -251,7 +255,9 @@ internal class ShippingBinPatches
         });
         if (i != 2)
         {
-            throw new InvalidOperationException("Unable to patch layer depths for ShippingBin's TemporaryAnimatedSprite's");
+            throw new InvalidOperationException(
+                "Unable to patch layer depths for ShippingBin's TemporaryAnimatedSprite's"
+            );
         }
     }
 
@@ -301,7 +307,8 @@ internal class ShippingBinPatches
         {
             return false;
         }
-        var sprite = instance.GetParentLocation().getTemporarySpriteByID(state.ShippmentSpriteId);
+        var location = instance.GetParentLocation();
+        var sprite = location.getTemporarySpriteByID(state.ShippmentSpriteId);
         if (sprite == null)
         {
             state.HasShippmentSpriteId = false;
