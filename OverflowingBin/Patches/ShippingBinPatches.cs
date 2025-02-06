@@ -78,6 +78,7 @@ internal class ShippingBinPatches
         double WobbleFrequency = Math.Tau / 20.0;
         float WobbleFadeRows = 20f;
 
+        int MaxSpriteCount = 250;
         // Global position of bottom left corner of the shipping bin
         var basePosition = new Vector2(instance.tileX.Value, instance.tileY.Value) * 64f;
         var random = new Random(Game1.Date.TotalDays);
@@ -90,6 +91,7 @@ internal class ShippingBinPatches
 
         int row = 0;
         int column = 0;
+        int spriteCount = 0;
         foreach (var item in inventory)
         {
             if (item == null)
@@ -123,8 +125,13 @@ internal class ShippingBinPatches
                 }
 
                 var location = Game1.GlobalToLocal(Game1.viewport, position);
-                var layerDepth = (basePosition.Y + 64) / 10000f + 0.00012f + (column + row * 2) * 0.00011f;
+                var layerDepth = (basePosition.Y + 64) / 10000f + 0.00012f + (column + row * 3) * 0.00011f;
                 item.drawInMenu(b, location, ItemScale, 1.0f, layerDepth, StackDrawType.Hide, itemTint, true);
+
+                spriteCount++;
+                if (spriteCount >= MaxSpriteCount) {
+                    return;
+                }
 
                 column++;
                 if (column == columns)
