@@ -1,10 +1,9 @@
 using System.Runtime.CompilerServices;
-using StardewValley.Buildings;
 
 namespace OverflowingBin;
 internal class ShippingBinState
 {
-    private static readonly ConditionalWeakTable<ShippingBin, ShippingBinState> StateTable = new();
+    private static readonly ConditionalWeakTable<object, ShippingBinState> StateTable = new();
 
     public bool CanCloseLid = true;
 
@@ -20,7 +19,7 @@ internal class ShippingBinState
         }
     }
 
-    public static ShippingBinState GetState(ShippingBin instance)
+    public static ShippingBinState GetState(object instance)
     {
         return StateTable.GetOrCreateValue(instance);
     }

@@ -1,92 +1,107 @@
 using System.Reflection.Emit;
 using HarmonyLib;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using OverflowingBin.ItemBin;
 using StardewModdingAPI;
 using StardewValley;
-using StardewValley.Buildings;
+using StardewValley.Locations;
 
 namespace OverflowingBin.Patches;
-internal class ShippingBinPatches
+internal class IslandWestPatches
 {
     private static IMonitor? Monitor;
-    private static ShippingBinLogic? ShippingBinLogic;
+    private static IslandWestBinLogic? IslandWestBinLogic;
 
     internal static void Initialize(IMonitor monitor, Harmony harmony, ShippingBinTextures shippingBinTextures)
     {
         Monitor = monitor;
 
         harmony.Patch(
-            original: AccessTools.Method(typeof(ShippingBin), nameof(ShippingBin.draw)),
-            postfix: new HarmonyMethod(typeof(ShippingBinPatches), nameof(Draw_Postfix))
+            original: AccessTools.Method(typeof(IslandWest), nameof(IslandWest.draw)),
+            postfix: new HarmonyMethod(typeof(IslandWestPatches), nameof(Draw_Postfix))
         );
         harmony.Patch(
-            original: AccessTools.Method(typeof(ShippingBin), "closeShippingBinLid"),
-            prefix: new HarmonyMethod(typeof(ShippingBinPatches), nameof(CloseShippingBinLid_Prefix))
+            original: AccessTools.Method(typeof(IslandWest), "closeShippingBinLid"),
+            prefix: new HarmonyMethod(typeof(IslandWestPatches), nameof(CloseShippingBinLid_Prefix))
         );
         harmony.Patch(
-            original: AccessTools.Method(typeof(ShippingBin), nameof(ShippingBin.showShipment)),
-            transpiler: new HarmonyMethod(typeof(ShippingBinPatches), nameof(ShowShipment_Transpiler))
+            original: AccessTools.Method(typeof(IslandWest), nameof(IslandWest.showShipment)),
+            transpiler: new HarmonyMethod(typeof(IslandWestPatches), nameof(ShowShipment_Transpiler))
         );
         Harmony.ReversePatch(
-            original: AccessTools.Method(typeof(ShippingBin), "openShippingBinLid"),
-            standin: new HarmonyMethod(typeof(ShippingBinLogic), nameof(ShippingBinLogic.OpenShippingBinLid_RP))
+            original: AccessTools.Method(typeof(IslandWest), "openShippingBinLid"),
+            standin: new HarmonyMethod(typeof(IslandWestBinLogic), nameof(IslandWestBinLogic.OpenShippingBinLid_RP))
         );
         Harmony.ReversePatch(
-            original: AccessTools.Method(typeof(ShippingBin), "isShippingBinLidOpen"),
-            standin: new HarmonyMethod(typeof(ShippingBinLogic), nameof(ShippingBinLogic.IsShippingBinLidOpen_RP))
+            original: AccessTools.Method(typeof(IslandWest), "isShippingBinLidOpen"),
+            standin: new HarmonyMethod(typeof(IslandWestBinLogic), nameof(IslandWestBinLogic.IsShippingBinLidOpen_RP))
         );
 
-        ShippingBinLogic = new ShippingBinLogic(shippingBinTextures);
+        IslandWestBinLogic = new IslandWestBinLogic(shippingBinTextures);
     }
 
-    private static void Draw_Postfix(ShippingBin __instance,
+    private static void Draw_Postfix(IslandWest __instance,
         TemporaryAnimatedSprite? ___shippingBinLid,
         SpriteBatch b)
     {
-        ShippingBinLogic!.Draw_Postfix(__instance, ___shippingBinLid, b);
+        IslandWestBinLogic!.Draw_Postfix(__instance, ___shippingBinLid, b);
     }
 
-    private static bool CloseShippingBinLid_Prefix(ShippingBin __instance,
+    private static bool CloseShippingBinLid_Prefix(IslandWest __instance,
         TemporaryAnimatedSprite? ___shippingBinLid)
     {
-        return ShippingBinLogic!.CloseShippingBinLid_Prefix(__instance, ___shippingBinLid);
+        return IslandWestBinLogic!.CloseShippingBinLid_Prefix(__instance, ___shippingBinLid);
     }
 
     private static void PatchSpriteLayerDepths(CodeMatcher codeMatcher)
     {
-        // Adjust the layer depth for the ShippingBin TemporaryAnimatedSprites
+        // Adjust the layer depth for the IslandWest TemporaryAnimatedSprites
         var i = 0;
         codeMatcher.Start()
         .MatchStartForward(new CodeMatch[] {
-            new(inst => inst.LoadsConstant(10000f)),
-            new(OpCodes.Div),
             new(OpCodes.Ldc_R4),
-            new(OpCodes.Add),
             new(OpCodes.Stfld, AccessTools.Field(typeof(TemporaryAnimatedSprite), nameof(TemporaryAnimatedSprite.layerDepth)))
         })
         .Repeat(cm =>
         {
-            cm.Advance(2); // Advance to ldc.r4 <layer depth offset>
+            float layerDepthOffset = 0;
             if (i == 0)
             {
                 // Full sprite, background layer
                 // Move it back more.
-                cm.SetOperandAndAdvance(0.00011f); // Original: 0.0002f
+                layerDepthOffset = 0.00011f; // Original: 0.00001003f
             }
             else if (i == 1)
             {
                 // Bottom half of sprite, foreground layer
                 // Move it forward more.
-                cm.SetOperandAndAdvance(0.001601f); //Original: 0.0003f
+                layerDepthOffset = 0.001601f; //Original: 0.0003f
             }
             else if (i == 2)
             {
                 // Item being shipped
                 // Move it forward, but keep it behind the bottom half.
-                cm.SetOperandAndAdvance(0.0016f); // Original: 0.000225
+                layerDepthOffset = 0.0016f; // Original: 0.00022502f
             }
             i++;
+
+            cm.RemoveInstruction();
+            // (float)((this.shippingBinPosition.Y + 1) * 64) / 10000f + layerDepthOffset
+            cm.InsertAndAdvance(new CodeInstruction[] {
+                new(OpCodes.Ldarg_0), // Load reference to IslandWest
+                new(OpCodes.Ldfld, AccessTools.Field(typeof(IslandWest), nameof(IslandWest.shippingBinPosition))),
+                new(OpCodes.Ldfld, AccessTools.Field(typeof(Point), nameof(Point.Y))),
+                new(OpCodes.Ldc_I4_1),
+                new(OpCodes.Add),
+                new(OpCodes.Ldc_I4, 64),
+                new(OpCodes.Mul),
+                new(OpCodes.Conv_R4),
+                new(OpCodes.Ldc_R4, 10000f),
+                new(OpCodes.Div),
+                new(OpCodes.Ldc_R4, layerDepthOffset),
+                new(OpCodes.Add)
+            });
         });
         if (i != 3)
         {
@@ -104,10 +119,10 @@ internal class ShippingBinPatches
             new(inst => inst.IsLdloc()),
             new(OpCodes.Stfld, AccessTools.Field(typeof(TemporaryAnimatedSprite), nameof(TemporaryAnimatedSprite.extraInfoForEndBehavior))),
             new(OpCodes.Dup),
-            new(inst => inst.IsLdloc()),
+            new(OpCodes.Ldarg_0), // IslandWest is a GameLocation
             new(OpCodes.Ldftn, AccessTools.Method(typeof(GameLocation), nameof(GameLocation.removeTemporarySpritesWithID))),
         })
-        .ThrowIfInvalid("Failed to find code for ShippingBin's TemporaryAnimatedSprite id");
+        .ThrowIfInvalid("Failed to find code for IslandWest's TemporaryAnimatedSprite id");
 
         var ldlocExtraInfo = codeMatcher.Instruction;
         codeMatcher.Insert(new CodeInstruction[] {

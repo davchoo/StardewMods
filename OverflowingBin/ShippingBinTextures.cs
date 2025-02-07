@@ -11,6 +11,8 @@ internal class ShippingBinTextures
 
     public Lazy<Texture2D>? ShippingBinFront { get; private set; }
 
+    public Lazy<Texture2D>? IslandWestBinFront { get; private set; }
+
     public ShippingBinTextures(IModHelper helper)
     {
         Assets = DefineAssets();
@@ -22,7 +24,30 @@ internal class ShippingBinTextures
     public void ResetTextures(IModHelper helper)
     {
         ShippingBinFront = new Lazy<Texture2D>(
-            () => ApplyMask("Buildings/Shipping Bin", $"{ModEntry.AssetBasePath}/ShippingBinMask", helper)
+            () => ApplyMask(
+                "Buildings/Shipping Bin",
+                $"{ModEntry.AssetBasePath}/ShippingBinMask",
+                helper
+            )
+        );
+
+        IslandWestBinFront = new Lazy<Texture2D>(
+            () =>
+            {
+                var IslandWestTileSheet = helper.GameContent.Load<Texture2D>(
+                    "Maps/island_tilesheet_1"
+                );
+                var IslandWestBase = ExtractRectangle(
+                    IslandWestTileSheet,
+                    new Rectangle(192, 720, 32, 32)
+                );
+                var IslandWestBinMask = helper.GameContent.Load<Texture2D>(
+                    $"{ModEntry.AssetBasePath}/IslandWestBinMask"
+                );
+                var result = ApplyMask(IslandWestBase, IslandWestBinMask);
+                IslandWestBase.Dispose();
+                return result;
+            }
         );
     }
 
@@ -70,11 +95,22 @@ internal class ShippingBinTextures
         return result;
     }
 
+    private static Texture2D ExtractRectangle(Texture2D baseTexture, Rectangle rectangle)
+    {
+        Color[] colors = new Color[rectangle.Width * rectangle.Height];
+        baseTexture.GetData(0, 0, rectangle, colors, 0, colors.Length);
+
+        Texture2D result = new(Game1.graphics.GraphicsDevice, rectangle.Width, rectangle.Height);
+        result.SetData(colors);
+        return result;
+    }
+
     private static Dictionary<string, string> DefineAssets()
     {
         return new Dictionary<string, string>
         {
             { $"{ModEntry.AssetBasePath}/ShippingBinMask", "assets/ShippingBinMask.png" },
+            { $"{ModEntry.AssetBasePath}/IslandWestBinMask", "assets/IslandWestBinMask.png" },
         };
     }
 

@@ -16,6 +16,7 @@ public class ModEntry : Mod
 
         var harmony = new Harmony(ModManifest.UniqueID);
         ShippingBinPatches.Initialize(Monitor, harmony, ShippingBinTextures);
+        IslandWestPatches.Initialize(Monitor, harmony, ShippingBinTextures);
 
         helper.Events.GameLoop.DayStarted += OnDayStarted;
     }
