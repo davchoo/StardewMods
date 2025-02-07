@@ -79,6 +79,7 @@ internal class ShippingBinPatches
         float WobbleFadeRows = 20f;
 
         int MaxSpriteCount = 250;
+        float OffscreenThreshold = -64f * 1.5f * ItemScale;
         // Global position of bottom left corner of the shipping bin
         var basePosition = new Vector2(instance.tileX.Value, instance.tileY.Value) * 64f;
         var random = new Random(Game1.Date.TotalDays);
@@ -129,7 +130,12 @@ internal class ShippingBinPatches
                 item.drawInMenu(b, location, ItemScale, 1.0f, layerDepth, StackDrawType.Hide, itemTint, true);
 
                 spriteCount++;
-                if (spriteCount >= MaxSpriteCount) {
+                if (spriteCount >= MaxSpriteCount)
+                {
+                    return;
+                }
+                if (!state.CanCloseLid && location.Y < OffscreenThreshold)
+                {
                     return;
                 }
 
@@ -235,7 +241,7 @@ internal class ShippingBinPatches
 
     private static void PatchSpriteLayerDepths(CodeMatcher codeMatcher)
     {
-        // Adjust the layer depth for the two ShippingBin TemporaryAnimatedSprites
+        // Adjust the layer depth for the ShippingBin TemporaryAnimatedSprites
         var i = 0;
         codeMatcher.MatchStartForward(new CodeMatch[] {
             new(inst => inst.LoadsConstant(10000f)),
@@ -250,17 +256,24 @@ internal class ShippingBinPatches
             if (i == 0)
             {
                 // Full sprite, background layer
-                cm.SetOperandAndAdvance(0.00011f); // Move it back more. Original: 0.0002f
+                // Move it back more.
+                cm.SetOperandAndAdvance(0.00011f); // Original: 0.0002f
             }
             else if (i == 1)
             {
                 // Bottom half of sprite, foreground layer
-                cm.SetOperandAndAdvance(0.001601f); // Move it forward more. Original: 0.0003f
-                cm.End(); // Stop since the next sprite is the item being shipped
+                // Move it forward more.
+                cm.SetOperandAndAdvance(0.001601f); //Original: 0.0003f
+            }
+            else if (i == 2)
+            {
+                // Item being shipped
+                // Move it forward, but keep it behind the bottom half.
+                cm.SetOperandAndAdvance(0.0016f); // Original: 0.000225
             }
             i++;
         });
-        if (i != 2)
+        if (i != 3)
         {
             throw new InvalidOperationException(
                 "Unable to patch layer depths for ShippingBin's TemporaryAnimatedSprite's"
